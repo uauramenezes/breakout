@@ -10,6 +10,11 @@ fn window_conf() -> Conf {
     }
 }
 
+enum Side {
+    Left,
+    Right,
+}
+
 struct Player {
     x: f32,
     y: f32,
@@ -33,11 +38,10 @@ impl Player {
     }
 }
 
-fn new_player(side: &str) -> Player {
-    let x = if side == "left" {
-        11.0
-    } else {
-        screen_width() - 11.0 - 8.0
+fn new_player(side: Side) -> Player {
+    let x = match side {
+        Side::Left => 11.0,
+        Side::Right => screen_width() - 11.0 - 8.0,
     };
     Player {
         x: x,
@@ -50,8 +54,8 @@ fn new_player(side: &str) -> Player {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let mut left_player = new_player("left");
-    let mut right_player = new_player("right");
+    let mut left_player = new_player(Side::Left);
+    let mut right_player = new_player(Side::Right);
 
     loop {
         clear_background(BLACK);
