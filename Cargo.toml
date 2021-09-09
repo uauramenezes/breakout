@@ -1,5 +1,5 @@
 [package]
-name = "pong"
+name = "breakout"
 version = "0.1.0"
 authors = ["uauramenezes <uaurasilva@hotmail.com>"]
 edition = "2018"
