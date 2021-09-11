@@ -16,46 +16,76 @@ struct Player {
     y: f32,
     w: f32,
     h: f32,
-    dir: f32,
+    direction: f32,
     speed: f32,
+}
+
+impl Player {
+    fn get_direction(&mut self) -> f32 {
+        if is_key_down(KeyCode::Left) || is_key_down(KeyCode::A) {
+            return -1.0;
+        }
+        if is_key_down(KeyCode::Right) || is_key_down(KeyCode::D) {
+            return 1.0;
+        }
+        0.0
+    }
+
+    fn wall_collision(&mut self) {
+        if self.x <= 0.0 {
+            self.x = 0.0;
+        }
+        if self.x + self.w > screen_width() {
+            self.x = screen_width() - self.w;
+        }
+    }
 }
 
 struct Ball {
     x: f32,
     y: f32,
     r: f32,
-    dir_x: f32,
-    dir_y: f32,
+    x_direction: f32,
+    y_direction: f32,
     speed: f32,
 }
 
 impl Ball {
-    fn move_self(&mut self, play: bool) {
-        self.speed = match play {
-            true => 150.0,
-            false => 0.0,
-        };
-
-        if self.x - self.r <= 0.0 || self.x + self.r >= screen_width() {
-            self.dir_x = -self.dir_x;
+    fn move_self(&mut self, player: &Player) {
+        if (self.x - self.r < 0.0 && self.x_direction < 0.0)
+            || (self.x + self.r > screen_width() && self.x_direction > 0.0)
+            || (((self.x - self.r <= player.x + player.w && self.x >= player.x + player.w)
+                || (self.x >= player.x && self.x - self.r < player.x))
+                && self.y + self.r >= player.y
+                && self.y - self.r <= player.y + player.h
+                && self.y_direction > 0.0)
+        {
+            self.x_direction = -self.x_direction;
         }
-        if self.y - self.r <= 0.0 || self.y + self.r >= screen_height() {
-            self.dir_y = -self.dir_y;
+        if (self.y - self.r <= 0.0)
+            || (self.y_direction > 0.0
+                && self.x >= player.x
+                && self.y + self.r >= player.y
+                && self.x <= player.x + player.w
+                && self.y - self.r <= player.y + player.h)
+        {
+            self.y_direction = -self.y_direction;
         }
 
-        self.y += self.speed * self.dir_y * get_frame_time();
-        self.x += self.speed * self.dir_x * get_frame_time();
+        self.y += self.speed * self.y_direction * get_frame_time();
+        self.x += self.speed * self.x_direction * get_frame_time();
     }
 }
 
-fn get_player_dir() -> f32 {
-    if is_key_down(KeyCode::Left) || is_key_down(KeyCode::A) {
-        return -1.0;
+fn play_game(mut play: bool) -> bool {
+    if is_key_down(KeyCode::Space) && !play {
+        play = true;
     }
-    if is_key_down(KeyCode::Right) || is_key_down(KeyCode::D) {
-        return 1.0;
+    if is_key_down(KeyCode::Escape) && play {
+        play = false;
     }
-    return 0.0;
+
+    play
 }
 
 #[macroquad::main(window_conf)]
@@ -65,7 +95,7 @@ async fn main() {
         y: screen_height() - 25.0,
         w: 80.0,
         h: 8.0,
-        dir: 0.0,
+        direction: 0.0,
         speed: 350.0,
     };
 
@@ -73,9 +103,9 @@ async fn main() {
         x: screen_width() / 2.0,
         y: screen_height() - 25.0 - 8.0,
         r: 8.0,
-        dir_x: -1.0,
-        dir_y: -1.0,
-        speed: 0.0,
+        x_direction: -1.0,
+        y_direction: -1.0,
+        speed: 250.0,
     };
 
     let mut play = false;
@@ -86,14 +116,22 @@ async fn main() {
         draw_rectangle(player.x, player.y, player.w, player.h, WHITE);
         draw_circle(ball.x, ball.y, ball.r, WHITE);
 
-        if is_key_down(KeyCode::Space) && !play {
-            play = true;
+        play = play_game(play);
+
+        if play {
+            ball.move_self(&player);
         }
 
-        ball.move_self(play);
+        if ball.y > screen_height() {
+            play = false;
+            ball.x = screen_width() / 2.0;
+            ball.y = screen_height() - 25.0 - 8.0;
+            player.x = screen_width() / 2.0 - 40.0;
+        }
 
-        player.dir = get_player_dir();
-        player.x += player.speed * player.dir * get_frame_time();
+        player.wall_collision();
+        player.direction = player.get_direction();
+        player.x += player.speed * player.direction * get_frame_time();
 
         next_frame().await
     }
