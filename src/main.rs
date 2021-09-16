@@ -3,8 +3,8 @@ use macroquad::prelude::*;
 fn window_conf() -> Conf {
     Conf {
         window_title: "Pong".to_owned(),
-        window_width: 450,
-        window_height: 650,
+        window_width: 480,
+        window_height: 640,
         fullscreen: false,
         window_resizable: false,
         ..Default::default()
@@ -88,6 +88,25 @@ fn play_game(mut play: bool) -> bool {
     play
 }
 
+fn draw_wall() {
+    let color = vec![RED, GREEN, BLUE, YELLOW, VIOLET, GRAY, ORANGE, LIME, BEIGE];
+    for i in 0..9 {
+        for j in 0..5 {
+            let c = i + j;
+            let c = match c {
+                9 => 0,
+                10 => 1,
+                11 => 2,
+                12 => 3,
+                _ => i + j,
+            };
+            let x = (i * 50 + 15) as f32;
+            let y = ((j + 1) * 10) as f32;
+            draw_rectangle(x, y, 50.0, 10.0, color[c]);
+        }
+    }
+}
+
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut player = Player {
@@ -115,6 +134,7 @@ async fn main() {
 
         draw_rectangle(player.x, player.y, player.w, player.h, WHITE);
         draw_circle(ball.x, ball.y, ball.r, WHITE);
+        draw_wall();
 
         play = play_game(play);
 
