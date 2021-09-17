@@ -11,6 +11,60 @@ fn window_conf() -> Conf {
     }
 }
 
+#[derive(Clone, Copy)]
+struct Brick {
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    color: Color,
+}
+
+impl Brick {
+    fn draw(&self) {
+        draw_rectangle(self.x, self.y, self.w, self.h, self.color);
+    }
+
+    // TODO: Add collision
+    // fn collision(&self, ball: &Ball) {}
+
+    // TODO: Add Endgame
+}
+
+#[derive(Clone)]
+struct Wall {}
+
+impl Wall {
+    fn new() -> Vec<Brick> {
+        let mut wall: Vec<Brick> = Vec::new();
+
+        let color = vec![RED, GREEN, BLUE, YELLOW, VIOLET, GRAY, ORANGE, LIME, BEIGE];
+        for i in 0..9 {
+            for j in 0..5 {
+                let c = i + j;
+                let c = match c {
+                    9 => 0,
+                    10 => 1,
+                    11 => 2,
+                    12 => 3,
+                    _ => i + j,
+                };
+                let x = (i * 50 + 15) as f32;
+                let y = ((j + 1) * 10) as f32;
+                wall.push(Brick {
+                    x: x,
+                    y: y,
+                    w: 50.0,
+                    h: 10.0,
+                    color: color[c],
+                });
+            }
+        }
+
+        wall
+    }
+}
+
 struct Player {
     x: f32,
     y: f32,
@@ -21,6 +75,25 @@ struct Player {
 }
 
 impl Player {
+    fn new() -> Player {
+        Player {
+            x: screen_width() / 2.0 - 40.0,
+            y: screen_height() - 25.0,
+            w: 80.0,
+            h: 8.0,
+            direction: 0.0,
+            speed: 350.0,
+        }
+    }
+
+    fn draw(&self) {
+        draw_rectangle(self.x, self.y, self.w, self.h, WHITE);
+    }
+
+    fn move_self(&mut self) {
+        self.direction = self.get_direction();
+        self.x += self.speed * self.direction * get_frame_time();
+    }
     fn get_direction(&mut self) -> f32 {
         if is_key_down(KeyCode::Left) || is_key_down(KeyCode::A) {
             return -1.0;
@@ -31,13 +104,17 @@ impl Player {
         0.0
     }
 
-    fn wall_collision(&mut self) {
+    fn border_collision(&mut self) {
         if self.x <= 0.0 {
             self.x = 0.0;
         }
         if self.x + self.w > screen_width() {
             self.x = screen_width() - self.w;
         }
+    }
+
+    fn restart(&mut self) {
+        self.x = screen_width() / 2.0 - 40.0;
     }
 }
 
@@ -51,6 +128,21 @@ struct Ball {
 }
 
 impl Ball {
+    fn new() -> Ball {
+        Ball {
+            x: screen_width() / 2.0,
+            y: screen_height() - 25.0 - 8.0,
+            r: 8.0,
+            x_direction: -1.0,
+            y_direction: -1.0,
+            speed: 250.0,
+        }
+    }
+
+    fn draw(&self) {
+        draw_circle(self.x, self.y, self.r, WHITE);
+    }
+
     fn move_self(&mut self, player: &Player) {
         if (self.x - self.r < 0.0 && self.x_direction < 0.0)
             || (self.x + self.r > screen_width() && self.x_direction > 0.0)
@@ -75,6 +167,11 @@ impl Ball {
         self.y += self.speed * self.y_direction * get_frame_time();
         self.x += self.speed * self.x_direction * get_frame_time();
     }
+
+    fn restart(&mut self) {
+        self.x = screen_width() / 2.0;
+        self.y = screen_height() - 25.0 - 8.0;
+    }
 }
 
 fn play_game(mut play: bool) -> bool {
@@ -88,55 +185,28 @@ fn play_game(mut play: bool) -> bool {
     play
 }
 
-fn draw_wall() {
-    let color = vec![RED, GREEN, BLUE, YELLOW, VIOLET, GRAY, ORANGE, LIME, BEIGE];
-    for i in 0..9 {
-        for j in 0..5 {
-            let c = i + j;
-            let c = match c {
-                9 => 0,
-                10 => 1,
-                11 => 2,
-                12 => 3,
-                _ => i + j,
-            };
-            let x = (i * 50 + 15) as f32;
-            let y = ((j + 1) * 10) as f32;
-            draw_rectangle(x, y, 50.0, 10.0, color[c]);
-        }
-    }
-}
-
 #[macroquad::main(window_conf)]
 async fn main() {
-    let mut player = Player {
-        x: screen_width() / 2.0 - 40.0,
-        y: screen_height() - 25.0,
-        w: 80.0,
-        h: 8.0,
-        direction: 0.0,
-        speed: 350.0,
-    };
+    let wall = Wall::new();
+    let mut player = Player::new();
 
-    let mut ball = Ball {
-        x: screen_width() / 2.0,
-        y: screen_height() - 25.0 - 8.0,
-        r: 8.0,
-        x_direction: -1.0,
-        y_direction: -1.0,
-        speed: 250.0,
-    };
+    let mut ball = Ball::new();
 
     let mut play = false;
 
     loop {
         clear_background(BLACK);
 
-        draw_rectangle(player.x, player.y, player.w, player.h, WHITE);
-        draw_circle(ball.x, ball.y, ball.r, WHITE);
-        draw_wall();
+        ball.draw();
+        player.draw();
+        player.move_self();
+        player.border_collision();
 
         play = play_game(play);
+
+        for brick in wall.clone().into_iter() {
+            brick.draw();
+        }
 
         if play {
             ball.move_self(&player);
@@ -144,14 +214,9 @@ async fn main() {
 
         if ball.y > screen_height() {
             play = false;
-            ball.x = screen_width() / 2.0;
-            ball.y = screen_height() - 25.0 - 8.0;
-            player.x = screen_width() / 2.0 - 40.0;
+            ball.restart();
+            player.restart();
         }
-
-        player.wall_collision();
-        player.direction = player.get_direction();
-        player.x += player.speed * player.direction * get_frame_time();
 
         next_frame().await
     }
